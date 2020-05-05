@@ -6,20 +6,18 @@ import agent from '../api/agent'
 configure({ enforceActions: 'always' })
 
 class ActivityStore {
-  @observable activityRegistry = new Map()
-  @observable activities: IActivity[] = []
-  @observable selectedActivity: IActivity | undefined
+  @observable activityRegistry = new Map<string, IActivity>()
+  @observable activity: IActivity | null = null
   @observable loadingInitial = false
-  @observable editMode = false
   @observable submitting = false
   @observable target = ''
 
-  @computed get activitiesByDate() {
+  @computed get activitiesByDate(): IActivity[] {
     return Array.from(this.activityRegistry.values()).sort(
       (a, b) => Date.parse(a.date) - Date.parse(b.date)
     )
   }
-  @action async loadActivities() {
+  @action loadActivities = async () => {
     this.loadingInitial = true
     try {
       const activities = await agent.Activities.list()
@@ -36,14 +34,41 @@ class ActivityStore {
     }
   }
 
-  @action.bound async createActivity(activity: IActivity) {
+  @action loadActivity = async (id: string) => {
+    let activity = this.getActivity(id)
+    if (activity) {
+      this.activity = activity
+    } else {
+      this.loadingInitial = true
+      try {
+        activity = await agent.Activities.details(id)
+        runInAction('loading activity', () => (this.activity = activity))
+      } catch (error) {
+        console.error(error)
+      } finally {
+        runInAction(
+          'load activity finally',
+          () => (this.loadingInitial = false)
+        )
+      }
+    }
+  }
+
+  @action clearActivity = () => (this.activity = null)
+
+  getActivity = (id: string | null): IActivity | null => {
+    let activity = id ? this.activityRegistry.get(id) : null
+    activity = activity ? activity : null
+    return activity
+  }
+
+  @action createActivity = async (activity: IActivity) => {
     this.submitting = true
     try {
       await agent.Activities.create(activity)
       runInAction('creating activity', () => {
         this.activityRegistry.set(activity.id, activity)
-        this.selectedActivity = activity
-        this.editMode = false
+        this.activity = activity
       })
     } catch (error) {
       console.error(error)
@@ -52,14 +77,13 @@ class ActivityStore {
     }
   }
 
-  @action.bound async editActivity(activity: IActivity) {
+  @action editActivity = async (activity: IActivity) => {
     this.submitting = true
     try {
       await agent.Activities.update(activity)
       runInAction('editing activity', () => {
         this.activityRegistry.set(activity.id, activity)
-        this.selectedActivity = activity
-        this.editMode = false
+        this.activity = activity
       })
     } catch (error) {
       console.error(error)
@@ -68,19 +92,18 @@ class ActivityStore {
     }
   }
 
-  @action.bound async deleteActivity(
+  @action deleteActivity = async (
     event: SyntheticEvent<HTMLButtonElement>,
     id: string
-  ) {
+  ) => {
     this.submitting = true
     this.target = event.currentTarget.name
     try {
       await agent.Activities.delete(id)
       runInAction('deleting activity', () => {
         this.activityRegistry.delete(id)
-        if (this.selectedActivity && this.selectedActivity.id === id) {
-          this.selectedActivity = undefined
-          this.editMode = false
+        if (this.activity && this.activity.id === id) {
+          this.activity = null
         }
       })
     } catch (error) {
@@ -91,28 +114,6 @@ class ActivityStore {
         this.submitting = false
       })
     }
-  }
-  @action openCreateForm = () => {
-    this.editMode = true
-    this.selectedActivity = undefined
-  }
-
-  @action.bound openEditForm(id: string) {
-    this.selectedActivity = this.activityRegistry.get(id)
-    this.editMode = true
-  }
-
-  @action.bound cancelSelectedActivity() {
-    this.selectedActivity = undefined
-  }
-
-  @action.bound cancelFormOpen() {
-    this.editMode = false
-  }
-
-  @action.bound selectActivity(id: string | null) {
-    this.selectedActivity = id ? this.activityRegistry.get(id) : undefined
-    this.editMode = false
   }
 }
 
