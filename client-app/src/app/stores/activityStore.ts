@@ -60,7 +60,9 @@ class ActivityStore {
         activity = await agent.Activities.details(id)
         runInAction('loading activity', () => (this.activity = activity))
       } catch (error) {
-        console.error(error)
+        console.log('ERIC!!!')
+        console.log(error)
+        console.log('shit')
       } finally {
         runInAction(
           'load activity finally',
