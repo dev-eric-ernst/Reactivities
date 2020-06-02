@@ -11,3 +11,8 @@ export interface IPhoto {
   url: string
   isMain: boolean
 }
+
+export interface IProfileDetails {
+  displayName: string
+  bio: string
+}

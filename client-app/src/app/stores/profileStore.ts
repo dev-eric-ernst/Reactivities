@@ -1,7 +1,7 @@
 import { RootStore } from './rootStore'
 import { observable, runInAction, action, computed } from 'mobx'
 import agent from '../api/agent'
-import { IProfile, IPhoto } from '../models/profile'
+import { IProfile, IPhoto, IProfileDetails } from '../models/profile'
 import { toast } from 'react-toastify'
 
 export default class ProfileStore {
@@ -103,6 +103,33 @@ export default class ProfileStore {
       toast.error('Problem deleting photo')
       runInAction('set main photo error', () => {
         this.deleting = false
+      })
+    }
+  }
+
+  @action editProfile = async (profileDetails: IProfileDetails) => {
+    this.loading = true
+    try {
+      await agent.Profiles.edit(profileDetails)
+      runInAction('editing profile', () => {
+        if (this.profile) {
+          if (
+            this.rootStore.userStore.user!.displayName !==
+            profileDetails.displayName
+          ) {
+            this.rootStore.userStore.user!.displayName =
+              profileDetails.displayName
+          }
+          this.profile.displayName = profileDetails.displayName
+          this.profile.bio = profileDetails.bio
+        }
+        this.loading = false
+      })
+    } catch (error) {
+      console.log(error)
+      toast.error('Problem editing profile')
+      runInAction('edit profile error', () => {
+        this.loading = false
       })
     }
   }
